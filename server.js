@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // API endpoint
 app.post("/api/gemini", async (req, res) => {
   // Use environment variable for security
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "YOUR_API_KEY";
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyD9oWkNoEM47pL_bIbin_D00JwjuH2NUx4";
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
   const { prompt } = req.body;
 
