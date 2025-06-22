@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Co-Parenting Guide Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #FAF8F5; --text-dark: #44403C; --text-light: #78716C; --primary-accent: #9A348E; --secondary-accent: #E1A04B; --button-primary-bg: #831843; --button-secondary-bg: #BE185D; --border-color: #E7E5E4;
+        }
+        html, body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background-color: var(--bg-color); color: var(--text-dark); }
+        #webgl-background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; }
+        #app-container, #final-view-container { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; box-sizing: border-box; }
+        .slide { background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-radius: 1rem; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07); border: 1px solid rgba(255, 255, 255, 0.9); text-align: center; margin-bottom: 1.5rem; transition: opacity 0.7s ease-in-out, visibility 0.7s; opacity: 0; visibility: hidden; display: none; flex-direction: column; justify-content: space-between; pointer-events: none; padding: 1.5rem; width: 100%; max-width: 95vw; min-height: 480px; max-height: calc(100vh - 14rem); overflow-y: auto; }
+        @media (min-width: 768px) { .slide { padding: 2.5rem; width: 800px; max-width: 90%; } }
+        .slide.active { opacity: 1; visibility: visible; display: flex; pointer-events: auto; }
+        .button-group { display: flex; center: column; gap: 0.75rem; z-index: 10; justify-content: center; width: 100%; max-width: 600px; }
+        @media (min-width: 768px) { .button-group { flex-direction: row; gap: 1rem; } }
+        .button, .gemini-button, .choice-button { color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s ease-out; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); touch-action: manipulation; -webkit-app-region: no-drag; min-height: 52px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; cursor: pointer; width: 100%; }
+        @media (min-width: 768px) { .button, .gemini-button { width: auto; min-width: 150px; } }
+        .button { background-color: var(--button-primary-bg); }
+        .button:hover { background-color: #9d2453; transform: translateY(-2px); box-shadow: 0 7px 20px rgba(0, 0, 0, 0.08); }
+        .button:disabled, .gemini-button:disabled { background-color: #9ca3af; color: #e5e7eb; cursor: not-allowed; transform: none; box-shadow: none; }
+        .gemini-button { background-color: var(--button-secondary-bg); gap: 0.5rem; }
+        .gemini-button:hover { background-color: #d82772; transform: translateY(-2px); box-shadow: 0 7px 20px rgba(0, 0, 0, 0.08); }
+        #counselor-button { background-color: #581c87; }
+        #counselor-button:hover { background-color: #6b21a8; }
+        .gemini-result-container { font-size: 1rem; line-height: 1.6; color: var(--text-dark); text-align: center; max-height: 300px; overflow-y: auto; padding: 0 1rem; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--button-secondary-bg); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 1rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .slide-content { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; }
+        .slide h2 { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 600; color: var(--primary-accent); margin-bottom: 2rem; padding: 0.5rem; }
+        .slide p { color: var(--text-light); margin-bottom: 1rem; line-height: 1.7; text-align: center; width: 100%; max-width: 600px; padding: 0.5rem; }
+        .slide h2, .slide p { outline: none; border: 1px solid transparent; border-radius: 0.5rem; transition: border-color 0.3s, background-color 0.3s; }
+        .slide h2:focus, .slide p:focus { border-color: var(--secondary-accent); background-color: #FFFDFB; }
+        @media (min-width: 768px) { .slide h2 { font-size: 2.75rem; } .slide p { font-size: 1.125rem; } }
+        .choice-container { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem; }
+        @media (min-width: 768px) { .choice-container { grid-template-columns: 1fr 1fr; } }
+        .choice-box { border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 0.75rem; background-color: #fdfdfd; }
+        .choice-box h4 { font-family: 'Playfair Display', serif; color: var(--button-primary-bg); font-weight: 600; margin-bottom: 0.75rem; }
+        .choice-button { background-color: #059669; margin-top: 1rem; }
+        .choice-button:hover { background-color: #047857; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--button-primary-bg); color: white; padding: 12px 24px; border-radius: 0.5rem; z-index: 100; opacity: 0; transition: opacity 0.5s; font-weight: 500; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .toast.show { opacity: 1; }
+        #final-view-container { display: none; }
+    </style>
+</head>
+<body>
+    <canvas id="webgl-background"></canvas>
+    <div id="app-container">
+        <div id="builder-slides-container"></div>
+        <div id="navigation-controls" class="button-group">
+            <button id="prevButton" class="button" onclick="prevSlide()">Previous</button>
+            <button id="generateButton" class="button" onclick="generateFinalView()">✅ View My Guide</button>
+            <button id="nextButton" class="button" onclick="nextSlide()">Next</button>
+        </div>
+    </div>
+    <div id="final-view-container">
+        <div id="final-guide-content" class="w-full flex flex-col items-center"></div>
+        <button class="button mt-4" onclick="returnToBuilder()">Back to Editor</button>
+    </div>
+    <div id="toast-notification" class="toast">An error occurred.</div>
+    <script>
+        // --- Background & UI Functions ---
+        let scene, camera, renderer, particles, material; function initWebGL() { try { scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.z = 5; renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-background'), alpha: true, antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); const p = 2000, a = new Float32Array(p * 3), s = new Float32Array(p * 3), l = new THREE.BufferGeometry(), c = new THREE.Color(); for (let e = 0; e < p; e++) a[3 * e] = 10 * (Math.random() - .5), a[3 * e + 1] = 10 * (Math.random() - .5), a[3 * e + 2] = 10 * (Math.random() - .5), c.setHSL(.9 + .1 * Math.random(), .7, .5 + .2 * Math.random()), s[3 * e] = c.r, s[3 * e + 1] = c.g, s[3 * e + 2] = c.b; l.setAttribute("position", new THREE.BufferAttribute(a, 3)), l.setAttribute("color", new THREE.BufferAttribute(s, 3)), material = new THREE.PointsMaterial({ size: .05, vertexColors: !0, transparent: !0, blending: THREE.AdditiveBlending, depthWrite: !1, opacity: .7 }), particles = new THREE.Points(l, material), scene.add(particles), animateWebGL() } catch (e) { console.error("3D background initialization failed:", e), document.getElementById("webgl-background").style.display = "none" } }
+        let mouseX = 0, mouseY = 0; document.addEventListener("mousemove", e => { mouseX = (e.clientX - window.innerWidth / 2) / 1e4, mouseY = (e.clientY - window.innerHeight / 2) / 1e4 }); function animateWebGL() { renderer && (requestAnimationFrame(animateWebGL), particles.rotation.y = .0001 * Date.now() * .5, camera.position.x += (mouseX - camera.position.x) * .05, camera.position.y += (-mouseY - camera.position.y) * .05, camera.lookAt(scene.position), renderer.render(scene, camera)) } function onWindowResizeWebGL() { camera && renderer && (camera.aspect = window.innerWidth / window.innerHeight, camera.updateProjectionMatrix(), renderer.setSize(window.innerWidth, window.innerHeight)) } window.addEventListener("resize", onWindowResizeWebGL);
+
+        // --- Application State & Data ---
+        let currentSlideIndex = 0;
+        let customSlidesData = [{ title: "Setting the Stage: Why We're Here", content: ["This moment is important for us to connect openly. I sense a growing distance and tension, making it challenging to understand each other. When we interact, it sometimes feels unfamiliar, and that creates a barrier to resolving things.", "Trying to address complex feelings over messages can lead to misunderstandings, where intentions get lost, and we cycle through misinterpretations. This in-person conversation is vital for us to truly hear and understand one another, laying a foundation for clearer communication moving forward."] }, { title: "The Emotional Impact of Feeling Overlooked", content: ["I want to share the deep emotional impact I experience when my presence or involvement, especially concerning Sofia, feels disregarded. This isn't just about practicalities; it's a profound hurt when I feel my role as her mother is undervalued or actively excluded.", "It's about the feeling that my desire to be present for Sofia's moments, big or small, isn't respected. When I reach out or propose time together, and it's met with silence or avoidance, it creates a sense that my feelings, and even Sofia's expressed wishes, aren't being prioritized."] }, { title: "Sofia's Core Needs", content: ["Sofia's well-being is at the absolute heart of this discussion. She has openly expressed feelings of missing me, which indicates that our current dynamic is impacting her. Her emotions are a clear sign that consistency from both of us is vital for her sense of security and happiness.", "I am unwavering in my commitment to being a consistent and present mother for Sofia. This is about fulfilling my promise to her and ensuring her emotional stability. She needs both of us equally—her mom and her dad—to be fully present and working together."] }, { title: "Addressing Underlying Concerns", content: ["I want to create a space where we can both be completely honest without fear of negative reactions. If there are feelings of 'awkwardness' or concerns about Sofia being 'in the middle,' I truly want to understand those.", "It's essential for us to move forward with a foundation of trust. I want to reassure you that I would never use Sofia as leverage or retaliate. My sole focus is her happiness and her healthy relationship with both her parents."] }, { title: "Impact of Perceived Disrespect", content: ["A significant obstacle for me has been the recurring feeling that my role and value as a mother are not consistently respected or acknowledged. This directly impacts my ability to effectively co-parent.", "When I feel undervalued in this crucial role, it creates a profound sense of invalidation that makes collaboration incredibly difficult. For us to move forward constructively, it's vital to address this perception and ensure that there is mutual respect."] }, { title: "Clarifying Our Path Forward", content: ["I feel like we've been in limbo, and for my own peace and for Sofia's stability, I need clarity. I need to understand what you envision for our future, with complete and open honesty.", "This isn't an ultimatum, but a need to define our relationship. Are we working towards being a family again, or do we need to focus on being the most effective and respectful co-parenting team possible? Knowing the direction helps both of us move forward in a healthy way."] }, { title: "Looking Ahead: Concrete Steps", content: ["Regardless of our personal relationship, what Sofia needs most is a clear and consistent path. This includes establishing reliable ways to communicate about her school, health, and activities.", "I also need to be consistently involved in Sofia's life and have regular, predictable time with her. The daily 'emptiness' I experience without her is profound, and she deserves to have her mom fully present. My hope is that we can truly work together for her."] }];
+
+        // --- Core Builder Functions ---
+        function renderBuilder() { const container = document.getElementById('builder-slides-container'); container.innerHTML = ''; customSlidesData.forEach((slideData, index) => { const slideElement = document.createElement('div'); slideElement.id = `slide-${index}`; slideElement.className = `slide ${index === currentSlideIndex ? 'active' : ''}`; const paragraphsHTML = slideData.content.map((p, pIndex) => `<p contenteditable="true" onblur="updateContent(${index}, ${pIndex}, this.innerText)">${p}</p>`).join(''); slideElement.innerHTML = `<div class="slide-content"><h2 contenteditable="true" onblur="updateTitle(${index}, this.innerText)">${slideData.title}</h2><div class="text-base md:text-lg w-full">${paragraphsHTML}</div></div><div class="gemini-features mt-6 border-t border-gray-200/50 pt-6 w-full"><div class="flex flex-col sm:flex-row gap-4 justify-center"><button onclick="rephrasePoint(${index}, this)" class="gemini-button">Rephrase</button><button onclick="anticipateResponse(${index}, this)" class="gemini-button">Anticipate</button><button id="counselor-button" onclick="getCounselorAdvice(${index}, this)" class="gemini-button">Counselor's Advice</button></div><div id="gemini-result-${index}" class="gemini-result-container mt-6 p-4 bg-gray-50/50 rounded-lg" style="display:none;"></div></div>`; container.appendChild(slideElement); }); updateNavButtons(); }
+        function updateTitle(slideIndex, newTitle) { customSlidesData[slideIndex].title = newTitle; }
+        function updateContent(slideIndex, pIndex, newContent) { customSlidesData[slideIndex].content[pIndex] = newContent; }
+        
+        // --- Gemini API & Interaction (Adapted for Cloud Function) ---
+        async function callGemini(prompt, resultContainer, button) {
+            button.disabled = true;
+            resultContainer.style.display = 'block';
+            resultContainer.innerHTML = '<div class="loader"></div>';
+            
+            // !! IMPORTANT !!
+            // Replace this with the actual URL you get after deploying your cloud function.
+            const YOUR_CLOUD_FUNCTION_URL = 'https://your-function-name.your-provider.app/api/gemini'; 
+
+            try {
+                const response = await fetch(YOUR_CLOUD_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'API request failed');
+                }
+                const result = await response.json();
+                return result.response;
+            } catch (error) {
+                console.error("API call failed:", error);
+                showModal('Error', `Could not get a response. ${error.message}`);
+                return null;
+            } finally {
+                button.disabled = false;
+                if (!resultContainer.querySelector('.choice-container')) {
+                    resultContainer.innerHTML = '';
+                    resultContainer.style.display = 'none';
+                }
+            }
+        }
+        async function rephrasePoint(index, button) { const slide = customSlidesData[index]; const originalContent = slide.content.join('\n\n'); const prompt = `You are a communication coach with a sophisticated, empathetic, and direct style. Rephrase the following points to sound more elegant, confident, and collaborative. Use "I feel" statements where appropriate but maintain a strong, clear voice. Return ONLY the rephrased text, with paragraphs separated by double newlines.\n\nPoints:\n"${originalContent}"`; const resultContainer = document.getElementById(`gemini-result-${index}`); const rephrasedText = await callGemini(prompt, resultContainer, button); if (rephrasedText) { resultContainer.style.display = 'block'; resultContainer.innerHTML = `<div class="choice-container"><div class="choice-box"><h4>Original Version</h4><p>${originalContent.replace(/\n\n/g, '</p><p>')}</p></div><div class="choice-box"><h4>Suggested Version</h4><p>${rephrasedText.replace(/\n\n/g, '</p><p>')}</p><button class="choice-button button" onclick="chooseVersion(${index}, \`${rephrasedText.replace(/`/g, '\\`')}\`)">Use This Version</button></div></div>`; } }
+        function chooseVersion(slideIndex, newContentText) { const newContentArray = newContentText.split('\n\n').filter(p => p.trim() !== ''); customSlidesData[slideIndex].content = newContentArray; document.getElementById(`gemini-result-${slideIndex}`).innerHTML = ''; document.getElementById(`gemini-result-${slideIndex}`).style.display = 'none'; renderBuilder(); }
+        async function anticipateResponse(index, button) { const slide = customSlidesData[index]; const pointToDiscuss = `${slide.title}\n\n${slide.content.join('\n')}`; const prompt = `You are an expert in relationship psychology. A woman is preparing for a difficult co-parenting conversation. She will raise this point:\n"${pointToDiscuss}"\n\nAnticipate potential responses (positive/receptive, defensive/negative, avoidant/neutral) and briefly explain the underlying feelings that might cause each. Frame it constructively.`; const resultContainer = document.getElementById(`gemini-result-${index}`); const responseText = await callGemini(prompt, resultContainer, button); if (responseText) { resultContainer.style.display = 'block'; resultContainer.innerHTML = responseText.replace(/\n/g, '<br>'); } }
+        async function getCounselorAdvice(index, button) { const slide = customSlidesData[index]; const pointToDiscuss = `${slide.title}\n\n${slide.content.join('\n')}`; const prompt = `Act as an impartial family counselor. The parents are discussing the following topic regarding their daughter, Sofia:\n\n"${pointToDiscuss}"\n\nProvide compromising advice that prioritizes the child's (Sofia's) best interests. Offer concrete, actionable suggestions for both parents to find a middle ground. The tone should be wise, empathetic, and solution-focused.`; const resultContainer = document.getElementById(`gemini-result-${index}`); const responseText = await callGemini(prompt, resultContainer, button); if (responseText) { resultContainer.style.display = 'block'; resultContainer.innerHTML = `<h4 class="font-bold text-lg mb-2" style="font-family:'Playfair Display', serif;">Counselor's Perspective</h4>${responseText.replace(/\n/g, '<br>')}`; } }
+        
+        // --- Navigation & View Toggling ---
+        function updateNavButtons() { document.getElementById('prevButton').disabled = currentSlideIndex === 0; document.getElementById('nextButton').disabled = currentSlideIndex === customSlidesData.length - 1; }
+        function nextSlide() { if (currentSlideIndex < customSlidesData.length - 1) { currentSlideIndex++; renderBuilder(); } }
+        function prevSlide() { if (currentSlideIndex > 0) { currentSlideIndex--; renderBuilder(); } }
+        
+        function generateFinalView() {
+            const finalContent = document.getElementById('final-guide-content');
+            finalContent.innerHTML = `<h1 style="font-family:'Playfair Display', serif; font-size: 2.5rem; font-weight: bold; margin-bottom: 2rem; color: var(--text-dark);">My Co-Parenting Discussion Guide</h1>`;
+            customSlidesData.forEach(slide => {
+                const slideHTML = `<div class="slide active" style="margin-bottom: 2rem; border: none; min-height: unset;"><h2 style="font-family:'Playfair Display',serif; color:#9A348E;" class="text-3xl font-bold mb-6">${slide.title}</h2><div class="text-gray-600 text-lg space-y-4 text-center">${slide.content.map(p => `<p>${p}</p>`).join('')}</div></div>`;
+                finalContent.innerHTML += slideHTML;
+            });
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('final-view-container').style.display = 'flex';
+        }
+        function returnToBuilder() { document.getElementById('final-view-container').style.display = 'none'; document.getElementById('app-container').style.display = 'flex'; }
+        
+        function showModal(title, message) { const toast = document.getElementById('toast-notification'); toast.innerText = `${title}: ${message}`; toast.classList.add('show'); setTimeout(() => { toast.classList.remove('show'); }, 4000); }
+        
+        // --- Init ---
+        window.onload = function() {
+            initWebGL();
+            renderBuilder();
+        };
+    </script>
+</body>
+</html>
